@@ -6,23 +6,25 @@
 欢迎交流,指出错误等.
 # 开箱即用
 
-下载[data]()
+下载[yolov3的tensorflow实现](https://github.com/YunYang1994/tensorflow-yolov3)中的模型[yolov3.weights](https://github.com/YunYang1994/tensorflow-yolov3/releases/download/v1.0/yolov3.weights)放到`./data/checkpoint`中
 
+运行
 ```
+$ python convert_weight.py 
 $ python video_dome.py # 默认使用0摄像头, 也可以通过局域网调用手机摄像头
 ```
-![截图]()
+![截图](./screenshot/frames_2019-03-29 21:45:02.jpg)
 # 学习
 
 通过快速训练[quick_train.py]()开始,阅读项目代码开始学习yolov3的细节. 在之前
-- 下载[data](),使用浣熊数据集
+- 下载[raccoon](),使用浣熊数据集
 
-![]()|![]()
-- [pic_vis.py] 可视化数据
-- 使用[core.convert_tfrecord.py](),转换为tfrecord文件
-- [show_image_from_tfrecord.py](),检查文件是否正常
-- [quick_train.py]()开始训练调试
-- [show_train_result.py]() 检测所训练的模型效果.
+![](./screenshot/raccoon-12.jpg)|![](./screenshot/raccoon-107.jpg)
+- [pic_vis.py](./train_demo/pic_visu.py) 可视化数据
+- 使用[core.convert_tfrecord.py](./core/convert_tfrecord.py),转换为tfrecord文件
+- [show_image_from_tfrecord.py](./train_demo/show_image_from_tfrecord.py),检查文件是否正常
+- [quick_train.py](./train_demo/quick_train.py)开始训练调试
+- [show_train_result.py](./train_demo/show_image_from_tfrecord.py) 检测所训练的模型效果.
 
 # 使用其他数据集进行训练
 待更新....

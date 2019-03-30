@@ -1,0 +1,20 @@
+../data/train_dome_data/images/raccoon-120.jpg 129 12 510 331 0
+../data/train_dome_data/images/raccoon-96.jpg 28 25 203 175 0
+../data/train_dome_data/images/raccoon-130.jpg 223 62 497 307 0 453 41 640 423 0
+../data/train_dome_data/images/raccoon-13.jpg 55 28 393 313 0
+../data/train_dome_data/images/raccoon-40.jpg 164 53 349 275 0
+../data/train_dome_data/images/raccoon-66.jpg 220 37 697 440 0
+../data/train_dome_data/images/raccoon-33.jpg 89 12 593 843 0
+../data/train_dome_data/images/raccoon-30.jpg 78 25 182 177 0
+../data/train_dome_data/images/raccoon-108.jpg 99 53 402 464 0
+../data/train_dome_data/images/raccoon-86.jpg 129 34 475 401 0
+../data/train_dome_data/images/raccoon-128.jpg 76 87 190 148 0
+../data/train_dome_data/images/raccoon-122.jpg 7 7 174 198 0
+../data/train_dome_data/images/raccoon-111.jpg 41 5 683 917 0
+../data/train_dome_data/images/raccoon-177.jpg 8 18 157 178 0 146 13 263 146 0
+../data/train_dome_data/images/raccoon-119.jpg 16 62 362 353 0 211 359 277 402 0 198 392 280 473 0
+../data/train_dome_data/images/raccoon-67.jpg 18 17 224 168 0
+../data/train_dome_data/images/raccoon-181.jpg 100 1 420 411 0
+../data/train_dome_data/images/raccoon-75.jpg 1 1 640 459 0
+../data/train_dome_data/images/raccoon-125.jpg 13 6 252 190 0
+../data/train_dome_data/images/raccoon-167.jpg 1 5 175 195 0

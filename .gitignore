@@ -111,4 +111,8 @@ venv.bak/
 
 # mypy
 .mypy_cache/
-/data
+/data/train_dome_data/images_train.tfrecords
+/data/train_dome_data/images_test.tfrecords
+/data/train_dome_data/model/*
+/data/train_dome_data/log/*
+/data/checkpoint/*
