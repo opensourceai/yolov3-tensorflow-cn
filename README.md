@@ -19,7 +19,8 @@ $ python video_dome.py # 默认使用0摄像头, 也可以通过局域网调用�
 通过快速训练[quick_train.py]()开始,阅读项目代码开始学习yolov3的细节. 在之前
 - 下载[raccoon](),使用浣熊数据集
 
-![](./screenshot/raccoon-12.jpg)|![](./screenshot/raccoon-107.jpg)
+![](./screenshot/raccoon-12.jpg)
+![](./screenshot/raccoon-107.jpg)
 - [pic_vis.py](./train_demo/pic_visu.py) 可视化数据
 - 使用[core.convert_tfrecord.py](./core/convert_tfrecord.py),转换为tfrecord文件
 - [show_image_from_tfrecord.py](./train_demo/show_image_from_tfrecord.py),检查文件是否正常
