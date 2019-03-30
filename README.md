@@ -13,7 +13,7 @@
 $ python convert_weight.py 
 $ python video_dome.py # 默认使用0摄像头, 也可以通过局域网调用手机摄像头
 ```
-![](./screenshot/frames_2019-03-29 21:45:02.jpg)
+![](./screenshot/frames_2019-03-29.jpg)
 # 学习
 
 通过快速训练[quick_train.py]()开始,阅读项目代码开始学习yolov3的细节. 在之前
