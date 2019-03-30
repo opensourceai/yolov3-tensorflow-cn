@@ -85,6 +85,7 @@ class yolov3(object):
         inputs = common._conv2d_fixed_padding(inputs, filters * 2, 3)
         return route, inputs
 
+    # 目标识别的层, 转换到合适的深度,以满足不同class_num数据的分类
     def _detection_layer(self, inputs, anchors):
         num_anchors = len(anchors)
         feature_map = slim.conv2d(inputs, num_anchors * (5 + self._NUM_CLASSES), 1,
@@ -93,20 +94,22 @@ class yolov3(object):
                                   biases_initializer=tf.zeros_initializer())
         return feature_map
 
-    # reorganization
+    # 讲网络计算的的缩放量和偏移量与anchors,网格位置结合,得到在原图中的绝对位置与大小
     def _reorg_layer(self, feature_map, anchors):
         # 将张量转换为适合的格式
         num_anchors = len(anchors)  # num_anchors=3
         grid_size = feature_map.shape.as_list()[1:3]  # 网格数
         # the downscale image in height and weight
         stride = tf.cast(self.img_size // grid_size, tf.float32)  # [h,w] -> [y,x] 平均每个网络多少个像素值
+        # 讲anchors 与 目标信息拆开  (batch_size, cell, cell , anchor_num * (5 + class_num)) -->
+        #                         (batch_size, cell, cell , anchor_num ,5 + class_num)
         feature_map = tf.reshape(feature_map,
                                  [-1, grid_size[0], grid_size[1], num_anchors, 5 + self._NUM_CLASSES])  # 特征图
 
         box_centers, box_sizes, conf_logits, prob_logits = tf.split(
             feature_map, [2, 2, 1, self._NUM_CLASSES], axis=-1)  # 分离各个值,在最后一个维度进行
 
-        box_centers = tf.nn.sigmoid(box_centers)  # 使得偏移量变为非负
+        box_centers = tf.nn.sigmoid(box_centers)  # 使得偏移量变为非负,且在0~1之间, 超过1之后,中心点就偏移到了其他的单元中
 
         grid_x = tf.range(grid_size[1], dtype=tf.int32)
         grid_y = tf.range(grid_size[0], dtype=tf.int32)
@@ -150,16 +153,15 @@ class yolov3(object):
         x_y_offset = tf.cast(x_y_offset, tf.float32)
 
         box_centers = box_centers + x_y_offset  # 物体的中心坐标
-        box_centers = box_centers * stride[::-1]  # 在原图的坐标位置,反归一化
+        box_centers = box_centers * stride[::-1]  # 在原图的坐标位置,反归一化 [h,w] -> [y,x]
 
-        # tf.exp(box_sizes) 避免缩放出现负数, box_size[13,13,3,2],anchor[3,2]
+        # tf.exp(box_sizes) 避免缩放出现负数, box_size[13,13,3,2], anchor[3,2]
         box_sizes = tf.exp(box_sizes) * anchors  # anchors -> [w, h] 使用网络计算出的缩放量对anchors进行缩放
         boxes = tf.concat([box_centers, box_sizes], axis=-1)  # 计算除所有的方框在原图中的位置
         return x_y_offset, boxes, conf_logits, prob_logits
 
     @staticmethod  # 静态静态方法不睡和类和实例进行绑定
-    def _upsample(inputs, out_shape):  # 上采样
-
+    def _upsample(inputs, out_shape):  # 上采样, 放大图片
         new_height, new_width = out_shape[1], out_shape[2]
         inputs = tf.image.resize_nearest_neighbor(inputs, (new_height, new_width))  # 使用最近邻改变图像大小
         inputs = tf.identity(inputs, name='upsampled')
@@ -215,23 +217,25 @@ class yolov3(object):
                 with tf.variable_scope('yolo-v3'):
                     # https://github.com/YunYang1994/tensorflow-yolov3/raw/master/docs/images/levio.jpeg
                     # https://images2018.cnblogs.com/blog/606386/201803/606386-20180327004340505-1572852891.png
-                    # feature_map1 13x13x255
+                    # feature_map1 13x13x1024 --> 13x13x[3x(5+class_num)]
                     route, inputs = self._yolo_block(inputs, 512)
                     feature_map_1 = self._detection_layer(inputs, self._ANCHORS[6:9])
                     feature_map_1 = tf.identity(feature_map_1, name='feature_map_1')
 
-                    # feature_map2 26x26x255
+                    # feature_map2 26x26x512 --> 26x26x[3x(5+class_num)]
                     inputs = common._conv2d_fixed_padding(route, 256, 1)
                     upsample_size = route_2.get_shape().as_list()
+                    #  52x52 --> 26x26
                     inputs = self._upsample(inputs, upsample_size)  # 通过直接放大进行上采样
                     inputs = tf.concat([inputs, route_2], axis=3)  # 在axis=3 进行连接,
                     route, inputs = self._yolo_block(inputs, 256)
                     feature_map_2 = self._detection_layer(inputs, self._ANCHORS[3:6])
                     feature_map_2 = tf.identity(feature_map_2, name='feature_map_2')
 
-                    # feature_map3 52x52x255
+                    # feature_map3 52x52x256 --> 52x52x[3x(5+class_num)]
                     inputs = common._conv2d_fixed_padding(route, 128, 1)
                     upsample_size = route_1.get_shape().as_list()
+                    # 26x26 --> 52x52
                     inputs = self._upsample(inputs, upsample_size)
                     inputs = tf.concat([inputs, route_1], axis=3)
                     route, inputs = self._yolo_block(inputs, 128)
@@ -241,7 +245,7 @@ class yolov3(object):
             return feature_map_1, feature_map_2, feature_map_3
 
     def _reshape(self, x_y_offset, boxes, confs, probs):
-
+        # 构成一个(batch_size, cell*cell*len(anchors) , boxes)
         grid_size = x_y_offset.shape.as_list()[:2]  # 网格数
         boxes = tf.reshape(boxes, [-1, grid_size[0] * grid_size[1] * 3, 4])  # 3个anchor
         confs = tf.reshape(confs, [-1, grid_size[0] * grid_size[1] * 3, 1])  # 3个anchor分别对应概率
@@ -265,13 +269,14 @@ class yolov3(object):
                                (feature_map_2, self._ANCHORS[3:6]),
                                (feature_map_3, self._ANCHORS[0:3])]
 
+        # boxe 的相对位置转换为绝对位置
         results = [self._reorg_layer(feature_map, anchors) for (feature_map, anchors) in feature_map_anchors]
         boxes_list, confs_list, probs_list = [], [], []
 
         for result in results:
-            # print("*results==>", *result)
-            # print("results==>", len(result))
+            # *result =  x_y_offset, boxes, confs, probs
             boxes, conf_logits, prob_logits = self._reshape(*result)
+            # --> (batch_size, cell*cell*anchor_num, boxes/conf/prob)
 
             confs = tf.sigmoid(conf_logits)  # 转化成概率
             probs = tf.sigmoid(prob_logits)  # 转化成概率,每种类和不在为0
@@ -281,12 +286,12 @@ class yolov3(object):
             probs_list.append(probs)
 
         # 将3个feature_map中所有的信息,整合到一个张量
-        # shape : [Batch_size,10647,4]  10647=13x13x3+26x26x3+52x52x3
+        # shape : [Batch_size,10647,4]  10647 = 13x13x3 + 26x26x3 + 52x52x3
         boxes = tf.concat(boxes_list, axis=1)  # [Batch_size,10647,4]
         confs = tf.concat(confs_list, axis=1)  # [Batch_size,10647,1]
         probs = tf.concat(probs_list, axis=1)  # [Batch_size,10647,class_num]
 
-        # 坐标转化:中心坐标转化为左上角作案表,右下角坐标
+        # 坐标转化:中心坐标转化为 左上角作案表,右下角坐标 --> 方便计算矩形框
         center_x, center_y, width, height = tf.split(boxes, [1, 1, 1, 1], axis=-1)
         x0 = center_x - width / 2.
         y0 = center_y - height / 2.
@@ -301,7 +306,7 @@ class yolov3(object):
         :param pred_feature_map: list [feature_map_1,feature_map_2,feature_map3]
                 feature_map_1[13,13,3,(5 + self._NUM_CLASSES)]
         :param y_true: list [y_true_13, y_true_26, y_true_52]
-               y_true_13 [13,13,3,(5 + self._NUM_CLASSES)]只有含有目标的网格中存在信息,其余均为0.
+               y_true_13 [13,13,3,(5 + self._NUM_CLASSES)] 只有含有目标的网格中存在信息,其余均为0.
         :param ignore_thresh: 0.5
         :param max_box_per_image:
         :return:
@@ -328,7 +333,8 @@ class yolov3(object):
         grid_size = tf.shape(feature_map_i)[1:3]  # cellxcell
         grid_size_ = feature_map_i.shape.as_list()[1:3]
 
-        # 本身具有[-1, grid_size_[0], grid_size_[1], 3, 5 + self._NUM_CLASSES]的shape,只是进过tf.py_func时丢失.使用reshape重新赋予shape
+        # 本身具有[-1, grid_size_[0], grid_size_[1], 3, 5 + self._NUM_CLASSES]的shape,
+        # 但在进过tf.py_func方法时丢失shape信息,使用reshape重新赋予shape
         y_true = tf.reshape(y_true, [-1, grid_size_[0], grid_size_[1], 3, 5 + self._NUM_CLASSES])
 
         # the downscale ratio in height and weight
@@ -336,11 +342,13 @@ class yolov3(object):
         # N: batch_size
         N = tf.cast(tf.shape(feature_map_i)[0], tf.float32)
 
+        # 进过self._reorg_layer后会boxe会被换成绝对位置, 会使用ratio进行换算到cellxcell上
         x_y_offset, pred_boxes, pred_conf_logits, pred_prob_logits = self._reorg_layer(feature_map_i, anchors)
+
         # shape: take 416x416 input image and 13*13 feature_map for example:
-        #
         # [N, 13, 13, 3, 1]
         object_mask = y_true[..., 4:5]  # 该feature_map下所有的目标,有目标的为1,无目标的为0
+
         # shape: [N, 13, 13, 3, 4] & [N, 13, 13, 3] ==> [V, 4]
         # V: num of true gt box, 该feature_map下所有检测目标的数量
         valid_true_boxes = tf.boolean_mask(y_true[..., 0:4],
@@ -353,60 +361,67 @@ class yolov3(object):
         pred_box_xy = pred_boxes[..., 0:2]
         pred_box_wh = pred_boxes[..., 2:4]
 
-        # calc iou 计算交并比
-        # shape: [N, 13, 13, 3, V]
+        # calc iou 计算每个pre_boxe与所有true_boxe的交并比.
         # true:[V,2],[V,2]
         # pre : [13,13,3,2]
+        # out_shape: [N, 13, 13, 3, V],
         iou = self._broadcast_iou(valid_true_box_xy, valid_true_box_wh, pred_box_xy, pred_box_wh)
 
-        # iou shape : [N,13,13,3,V]
-        best_iou = tf.reduce_max(iou, axis=-1)  # 选择每个anchor中最大的那个.
+        # iou_shape : [N,13,13,3,V] 每个单元下每个anchor与所有的true_boxes的交并比
+        best_iou = tf.reduce_max(iou, axis=-1)  # 选择每个anchor中iou最大的那个.
+        # out_shape : [N,13,13,3]
+
         # get_ignore_mask
-        ignore_mask = tf.cast(best_iou < 0.5, tf.float32)  # 如果重合率低于0.5
-        # shape: [N, 13, 13, 3, 1]
+        ignore_mask = tf.cast(best_iou < 0.5, tf.float32)  # 如果iou低于0.5将会丢弃此anchor\
+        # out_shape : [N,13,13,3] 0,1张量
+
         ignore_mask = tf.expand_dims(ignore_mask, -1)
+        # out_shape: [N, 13, 13, 3, 1] 0,1张量
+
         # get xy coordinates in one cell from the feature_map
         # numerical range: 0 ~ 1
-        # shape: [N, 13, 13, 3, 2]  # 坐标未归一化
-        true_xy = y_true[..., 0:2] / ratio[::-1] - x_y_offset  # 偏移
-        pred_xy = pred_box_xy / ratio[::-1] - x_y_offset  # 偏移
+        # shape: [N, 13, 13, 3, 2]  # 坐标反归一化
+        true_xy = y_true[..., 0:2] / ratio[::-1] - x_y_offset  # 绝对(image_size * image_size)信息 转换为 单元(cellxcell)相对信息
+        pred_xy = pred_box_xy / ratio[::-1] - x_y_offset  # 获取网络真实输出值
 
         # get_tw_th, numerical range: 0 ~ 1
         # shape: [N, 13, 13, 3, 2],
         true_tw_th = y_true[..., 2:4] / anchors  # 缩放量
         pred_tw_th = pred_box_wh / anchors
-        # for numerical stability 稳定训练
+        # for numerical stability 稳定训练, 为0时不对anchors进行缩放, 在模型输出值特别小是e^out_put为0
         true_tw_th = tf.where(condition=tf.equal(true_tw_th, 0),
                               x=tf.ones_like(true_tw_th), y=true_tw_th)
         pred_tw_th = tf.where(condition=tf.equal(pred_tw_th, 0),
                               x=tf.ones_like(pred_tw_th), y=pred_tw_th)
-
-        true_tw_th = tf.log(tf.clip_by_value(true_tw_th, 1e-9, 1e9))  # 网络输出的原值(有正负)
+        # 还原网络最原始的输出值(有正负的)
+        true_tw_th = tf.log(tf.clip_by_value(true_tw_th, 1e-9, 1e9))
         pred_tw_th = tf.log(tf.clip_by_value(pred_tw_th, 1e-9, 1e9))
 
         # box size punishment:
         # box with smaller area has bigger weight. This is taken from the yolo darknet C source code.
         # 较小的面接的box有较大的权重
-        # shape: [N, 13, 13, 3, 1]  2. - 面积
+        # shape: [N, 13, 13, 3, 1]  2. - 面积   为1时表示保持原始权重
         box_loss_scale = 2. - (y_true[..., 2:3] / tf.cast(self.img_size[1], tf.float32)) * (
                 y_true[..., 3:4] / tf.cast(self.img_size[0], tf.float32))
 
-        # shape: [N, 13, 13, 3, 1] 方框损失值
+        # shape: [N, 13, 13, 3, 1] 方框损失值, 中心坐标均方差损失 * mask[N, 13, 13, 3, 1]
+        # 仅仅计算有目标单元的loss, 不计算那些错误预测的boxes, 在预测是首先会排除那些conf,iou底的单元
         xy_loss = tf.reduce_sum(tf.square(true_xy - pred_xy) * object_mask * box_loss_scale) / N  # N:batch_size
         wh_loss = tf.reduce_sum(tf.square(true_tw_th - pred_tw_th) * object_mask * box_loss_scale) / N
 
         # shape: [N, 13, 13, 3, 1]
         conf_pos_mask = object_mask  # 只要存在目标的boxe
         conf_neg_mask = (1 - object_mask) * ignore_mask  # 选择不存在目标,同时iou小于阈值(0.5),
+
         # 分离正样本和负样本
         # 正样本损失
         conf_loss_pos = conf_pos_mask * tf.nn.sigmoid_cross_entropy_with_logits(labels=object_mask,
                                                                                 logits=pred_conf_logits)
         # 处理后的负样本损失,只计算那些是单元格中没有目标,同时IOU小于0.5的单元,
-        # 只惩罚IOU<0.5,而不惩罚IOU>0.5 的原因是因为该单元内是有目标的,但是目标中心点却没有落在该单元中.
+        # 只惩罚IOU<0.5,而不惩罚IOU>0.5 的原因是可能该单元内是有目标的,仅仅只是目标中心点却没有落在该单元中.所以不计算该loss
         conf_loss_neg = conf_neg_mask * tf.nn.sigmoid_cross_entropy_with_logits(labels=object_mask,
                                                                                 logits=pred_conf_logits)
-        conf_loss = tf.reduce_sum(conf_loss_pos + conf_loss_neg) / N  # 平均交叉熵,同时提高正确率,压低错误率
+        conf_loss = tf.reduce_sum(conf_loss_pos + conf_loss_neg) / N  # 平均交叉熵,同时提高正确分类,压低错误分类
 
         # shape: [N, 13, 13, 3, 1], 分类loss
         # boject_mask 只看与anchors相匹配的anchors

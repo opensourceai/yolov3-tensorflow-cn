@@ -52,10 +52,11 @@ writer_test = tf.summary.FileWriter("../data/train_dome_data/log/test")
 # a2 = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="yolov3/darknet-53")
 # print(a1 == a2)
 # exit()
+# 恢复darknet-53特征提取器的权重参数, 只更新yolo-v3目标预测部分参数.
 saver_to_restore = tf.train.Saver(
     var_list=tf.contrib.framework.get_variables_to_restore(include=["yolov3/darknet-53"]))  # 固定特征提取器
 update_vars = tf.contrib.framework.get_variables_to_restore(include=["yolov3/yolo-v3"])
-# 每一百次降低一次学习率
+# 每一百次降低一次学习率, 学习率衰减
 learning_rate = tf.train.exponential_decay(LR, global_step, decay_steps=DECAY_STEPS, decay_rate=DECAY_RATE,
                                            staircase=True)
 optimizer = tf.train.AdamOptimizer(learning_rate)
@@ -97,4 +98,4 @@ for step in range(STEPS):
         print("\n=======================> evaluation result <================================\n")
 
     writer_test.add_summary(run_items[0], global_step=step)
-    writer_test.flush()  # Flushes the event file to disk
+    writer_test.flush()  # Flushes the event file to disk 写入磁盘

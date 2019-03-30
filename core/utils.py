@@ -244,7 +244,7 @@ def load_weights(var_list, weights_file):
         # print(np.fromfile(fp, dtype=np.int32, count=-1))
         # print(fp)
         # exit()
-        weights = np.fromfile(fp, dtype=np.float32)
+        weights = np.fromfile(fp, dtype=np.float32)  # 读取所有
 
     ptr = 0
     i = 0
@@ -266,7 +266,8 @@ def load_weights(var_list, weights_file):
                 batch_norm_vars = [beta, gamma, mean, var]
                 for var in batch_norm_vars:
                     shape = var.shape.as_list()
-                    num_params = np.prod(shape)  # 总的元素数量
+                    num_params = np.prod(shape)  # 计算BN层的参数量
+                    # 读取相对应的参数量
                     var_weights = weights[ptr:ptr + num_params].reshape(shape)  # 恢复shape
                     ptr += num_params
                     assign_ops.append(tf.assign(var, var_weights, validate_shape=True))
@@ -277,8 +278,7 @@ def load_weights(var_list, weights_file):
                 bias = var2
                 bias_shape = bias.shape.as_list()
                 bias_params = np.prod(bias_shape)
-                bias_weights = weights[ptr:ptr +
-                                           bias_params].reshape(bias_shape)
+                bias_weights = weights[ptr:ptr + bias_params].reshape(bias_shape)
                 ptr += bias_params
                 assign_ops.append(tf.assign(bias, bias_weights, validate_shape=True))
                 # we loaded 1 variable
@@ -287,9 +287,10 @@ def load_weights(var_list, weights_file):
             shape = var1.shape.as_list()
             num_params = np.prod(shape)
 
+            # 这是什么沙雕模型文件需要这种加载方式
             var_weights = weights[ptr:ptr + num_params].reshape(
                 (shape[3], shape[2], shape[0], shape[1]))  # 沙雕模型文件
-            # remember to transpose to column-major
+            # remember to transpose to column-major  维度交换
             var_weights = np.transpose(var_weights, (2, 3, 1, 0))
             ptr += num_params
             assign_ops.append(

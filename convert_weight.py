@@ -87,16 +87,17 @@ def main(argv):
         with tf.variable_scope('yolov3'):
             feature_map = model.forward(inputs, is_training=False)  # 返回3个尺度的feature_map
 
+        # 获取网络给出绝对boxes(左上角,右下角)信息, 未经过最大抑制去除多余boxes
         boxes, confs, probs = model.predict(feature_map)
         scores = confs * probs
-        # print("boxes: ", boxes)
         print("=>", boxes.name[:-2], scores.name[:-2])
-        # exit()
+        # cpu 运行是恢复模型所需要的网络节点的名字
         cpu_out_node_names = [boxes.name[:-2], scores.name[:-2]]
         boxes, scores, labels = utils.gpu_nms(boxes, scores, flags.num_classes,
                                               score_thresh=flags.score_threshold,
                                               iou_thresh=flags.iou_threshold)
         print("=>", boxes.name[:-2], scores.name[:-2], labels.name[:-2])
+        # gpu 运行是恢复模型所需要的网络节点的名字 , 直接运算得出最终结果
         gpu_out_node_names = [boxes.name[:-2], scores.name[:-2], labels.name[:-2]]
         feature_map_1, feature_map_2, feature_map_3 = feature_map
         saver = tf.train.Saver(var_list=tf.global_variables(scope='yolov3'))
