@@ -6,7 +6,7 @@
 欢迎交流,指出错误等.
 # 开箱即用
 
-下载[yolov3的tensorflow实现](https://github.com/YunYang1994/tensorflow-yolov3)中的模型[yolov3.weights](https://github.com/YunYang1994/tensorflow-yolov3/releases/download/v1.0/yolov3.weights)放到`./data/checkpoint`中
+下载[yolov3的tensorflow实现](https://github.com/YunYang1994/tensorflow-yolov3)中的模型[yolov3.weights](https://pan.baidu.com/s/1qAlZcbw0hB7c38ybKkbYUw)，提取码：'dh94'放到`./data/checkpoint`中
 
 运行
 ```
@@ -17,7 +17,7 @@ $ python video_dome.py # 默认使用0摄像头, 也可以通过局域网调用�
 # 学习
 
 通过快速训练[quick_train.py]()开始,阅读项目代码开始学习yolov3的细节. 在之前
-- 下载[raccoon](),使用浣熊数据集
+- 下载[raccoon](https://pan.baidu.com/s/1qAlZcbw0hB7c38ybKkbYUw)，提取码：'dh94',使用浣熊数据集
 
 ![](./screenshot/raccoon-12.jpg)
 ![](./screenshot/raccoon-107.jpg)
